@@ -211,6 +211,10 @@ class RecRunner():
         #print("Chunk size is %d" % (self.CHKS))
         pass
 
+    ###
+    # Getters and Setters
+    ###
+
     @property
     def data_directory(self):
         return self._data_directory
@@ -330,6 +334,10 @@ class RecRunner():
             "random": {'div_weight': 1},
         }
 
+    ###
+    # Name Getters
+    ###
+
     def get_base_rec_name(self):
         list_parameters = list(
             map(str, dict_to_list(self.base_rec_parameters)))
@@ -407,6 +415,10 @@ class RecRunner():
 
     def get_final_metrics_name(self):
         return self.data_directory+METRICS+self.get_final_rec_name()+f"{R_FORMAT}"
+
+    ###
+    # Dataset loading
+    ###
 
     def load_base(self, user_data=False, test_data=True):
         CITY = self.city
@@ -538,6 +550,10 @@ class RecRunner():
 
     def not_in_ground_truth_message(self, uid):
         print(f"{uid} not in ground_truth [ERROR]")
+
+    ###
+    # Method implementations
+    ###
 
     def usg(self):
         training_matrix = self.training_matrix
@@ -838,6 +854,10 @@ class RecRunner():
             results = run_parallel(self.run_geosoca, args, self.CHKS)
         self.save_result(results, base=True)
 
+    ###
+    # Static Runners
+    ###
+
     @staticmethod
     def run_geosoca(recrunner_id, uid):
         self =ctypes.cast(recrunner_id,ctypes.py_object).value
@@ -1092,6 +1112,10 @@ class RecRunner():
             return json.dumps({'user_id': uid, 'predicted': list(map(int, predicted)), 'score': list(map(float, overall_scores))})+"\n"
         self.not_in_ground_truth_message(uid)
         return ""
+
+    ###
+    # Evaluation
+    ###
 
     def load_base_predicted(self):
         folds = [None]

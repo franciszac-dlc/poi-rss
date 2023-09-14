@@ -1,3 +1,7 @@
+"""
+Sub-module for handling Yelp categories.
+"""
+
 import pandas as pd
 import networkx as nx
 import collections
@@ -7,6 +11,10 @@ from igraph import *
 
 def get_most_detailed_categories(categories, dict_alias_title,
                                  dict_alias_depth):
+    """
+    Given a tree of categories, get the ones at the leaves
+    (that is, the most specific ones)
+    """
     max_height = 0
     for category in categories:
         max_height = max(dict_alias_depth[category], max_height)
@@ -19,6 +27,12 @@ def get_most_detailed_categories(categories, dict_alias_title,
 
 
 def cat_structs_igraph(catfilename):
+    """
+    Given the path to a categories.json file, construct a tree of categories in
+    order of specificity.
+
+    Returns a Dict[alias -> title], Category tree (igraph), and Dict[alias -> depth]
+    """
     df_categories = pd.read_json(catfilename)
 
     dict_alias_title = dict()
@@ -31,11 +45,11 @@ def cat_structs_igraph(catfilename):
     category_tree.add_vertex('root')
 
     for index, row in df_categories.iterrows():
-        if not row['parents']:
+        if not row['parent_aliases']:
             category_tree.add_edge(row['alias'],
-                                   'root')  # root node if no parents
+                                   'root')  # root node if no parent_aliases
         else:
-            for parent_label in row['parents']:
+            for parent_label in row['parent_aliases']:
                 category_tree.add_edge(row['alias'], parent_label)
 
     dict_alias_depth = dict()
@@ -49,7 +63,17 @@ def cat_structs_igraph(catfilename):
 
 
 def cat_structs(catfilename):
+    """
+    Given the path to a categories.json file, construct a tree of categories in
+    order of specificity.
+
+    Returns a Dict[alias -> title], Category tree (nx.DiGraph), and Dict[alias -> depth]
+    """
     df_categories = pd.read_json(catfilename)  #"../data/categories.json"
+    # DataFrame:
+    #   alias: str
+    #   title: str
+    #   parent_aliases: List[str]
 
     # dicionário alias title 2 way
 
@@ -60,11 +84,11 @@ def cat_structs(catfilename):
 
     category_tree = nx.DiGraph()
     for index, row in df_categories.iterrows():
-        if not row['parents']:
+        if not row['parent_aliases']:
             category_tree.add_edge(row['alias'],
-                                   'root')  # root node if no parents
+                                   'root')  # root node if no parent_aliases
         else:
-            for parent_label in row['parents']:
+            for parent_label in row['parent_aliases']:
                 category_tree.add_edge(row['alias'], parent_label)
 
     undirected_category_tree = category_tree.to_undirected()
@@ -80,6 +104,13 @@ def cat_structs(catfilename):
 
 
 def get_users_cat_visits(training_matrix, poi_cats):
+    """
+    TODO: Verify
+
+    Given a training matrix of users x POIs, and a mapping POI -> categories,
+    construct a list of users and the categories they visited according to the
+    matrix.
+    """
     users_cv = []
     for i in range(training_matrix.shape[0]):
         cats_visits = collections.defaultdict(int)

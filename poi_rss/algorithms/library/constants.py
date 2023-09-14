@@ -27,14 +27,14 @@ RECLIST = RESULT_DIRECTORY+'reclist/'
 IMG = RESULT_DIRECTORY+'img/'
 UTIL = RESULT_DIRECTORY+'util/'
 
-# class geocat_constants:
-    # NEIGHBOR_DISTANCE = 0.5  # km
-    # N = 80  # temp list size
-    # K = 20  # final list size
-    # VERY_SMALL_VALUE = -100  # used for objective function
-    # # beta,this is here because of the work to be done on parameter customization for each user
-    # DIV_GEO_CAT_WEIGHT = 0.5
-    # DIV_WEIGHT = 0.75  # lambda, geo vs cat_DIV_WEIGHT = 0.75 # lambda, geo vs cat
+class geocat_constants:
+    NEIGHBOR_DISTANCE = 0.5  # km
+    N = 80  # temp list size
+    K = 20  # final list size
+    VERY_SMALL_VALUE = -100  # used for objective function
+    # beta,this is here because of the work to be done on parameter customization for each user
+    DIV_GEO_CAT_WEIGHT = 0.5
+    DIV_WEIGHT = 0.75  # lambda, geo vs cat_DIV_WEIGHT = 0.75 # lambda, geo vs cat
 
 
 EARTH_RADIUS = 6371

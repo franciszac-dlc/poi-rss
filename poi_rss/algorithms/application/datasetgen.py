@@ -20,15 +20,21 @@ import math
 import sklearn
 import sklearn.neighbors
 
-SPLIT_YEAR=2017
+SPLIT_YEAR = 2017
 earth_radius = 6371000/1000 # km in earth
 cities=['lasvegas','phoenix','charlotte','madison']
 # cities=experiment_constants.CITIES
-#cities=['madison']
+# cities=['madison']
 
-dict_alias_title,category_tree,dict_alias_depth=cat_utils.cat_structs("../../data/categories.json")
-undirected_category_tree=category_tree.to_undirected()
+print("1. Setting up categories...")
+
+dict_alias_title,category_tree,dict_alias_depth = cat_utils.cat_structs("../../data/categories.json")
+undirected_category_tree = category_tree.to_undirected()
+
 def category_filter(categories):
+    """
+    Filters out a level of categories. I've no idea which though.
+    """
     tmp_cat_list=list()
     if categories != None:
         for category in categories:
@@ -46,12 +52,13 @@ def category_normalization(categories):
     else:
         return []
 
-TRAIN_SIZE=experiment_constants.TRAIN_SIZE
-TEST_SIZE=1-TRAIN_SIZE
+TRAIN_SIZE = experiment_constants.TRAIN_SIZE
+TEST_SIZE = 1-TRAIN_SIZE
 
 
 # In[2]:
 
+print("2. Setting up business data...")
 
 fbusiness=open("../../data/business.json")
 poi_data = dict()
@@ -74,6 +81,7 @@ print(time.time()-start_time)
 
 # In[3]:
 
+print("3. Setting up cities data...")
 
 areas=dict()
 for city in cities:
@@ -100,6 +108,9 @@ print(time.time()-start_time)
 
 # In[5]:
 
+# The process gets killed here because the user dictionaries end up being too
+# large. For reference, user.json is 3GB.
+print("4. Setting up users data...")
 
 fuser=open("../../data/user.json")
 user_friend = dict()
@@ -122,6 +133,7 @@ print(time.time()-start_time)
 
 # In[6]:
 
+print("5. Setting up review data...")
 
 freview=open("../../data/review.json")
 
@@ -211,6 +223,7 @@ genoptions=['checkin',
 # In[ ]:
 
 
+print("6. Iterating over cities...")
 
 
 for city in cities:
@@ -260,7 +273,7 @@ for city in cities:
     for i,user_id in enumerate(users_id):
         users_id_to_int[user_id]=i
 
-    fuid=open('../../data/user/id/'+city+'.pickle','wb')
+    fuid=open('../../data/datasets/user/id/'+city+'.pickle','wb')
     pickle.dump(users_id_to_int,fuid)
     fuid.close()
 
@@ -269,7 +282,7 @@ for city in cities:
     for i,poi_id in enumerate(pois_id):
         pois_id_to_int[poi_id]=i
 
-    fpid=open('../../data/poi/id/'+city+'.pickle','wb')
+    fpid=open('../../data/datasets/poi/id/'+city+'.pickle','wb')
     pickle.dump(pois_id_to_int,fpid)
     fpid.close()
 
@@ -283,7 +296,7 @@ for city in cities:
         for poi_id in pois_id:
             city_poi_data[pois_id_to_int[poi_id]]=poi_data[poi_id].copy()
             city_poi_data[pois_id_to_int[poi_id]] = {'categories':category_normalization(city_poi_data[pois_id_to_int[poi_id]]['categories'])}
-        fpoi=open('../../data/poi_full/'+city+'.pickle','wb')
+        fpoi=open('../../data/datasets/poi_full/'+city+'.pickle','wb')
         pickle.dump(city_poi_data,fpoi)
         fpoi.close()
 
@@ -292,7 +305,7 @@ for city in cities:
         for poi_id in pois_id:
             city_poi_data[pois_id_to_int[poi_id]]=poi_data[poi_id].copy()
             city_poi_data[pois_id_to_int[poi_id]]['categories']=category_filter(poi_data[poi_id]['categories'])
-        fpoi=open('../../data/poi/'+city+'.pickle','wb')
+        fpoi=open('../../data/datasets/poi/'+city+'.pickle','wb')
         pickle.dump(city_poi_data,fpoi)
         fpoi.close()
 
@@ -318,7 +331,7 @@ for city in cities:
         # list to dict
         # poi_neighbors = {i: poi_neighbors[i] for i in range(len(poi_neighbors))}
         print("Terminou vizinhos...")
-        fneighbors=open('../../data/neighbor/'+city+'.pickle','wb')
+        fneighbors=open('../../data/datasets/neighbor/'+city+'.pickle','wb')
         pickle.dump(poi_neighbors,fneighbors)
         fneighbors.close()
     
@@ -338,7 +351,7 @@ for city in cities:
                     pass
 
             city_user_friend[users_id_to_int[user_id]]=ucity_friends
-        fuser=open('../../data/user/friend/'+city+'.pickle','wb')
+        fuser=open('../../data/datasets/user/friend/'+city+'.pickle','wb')
         pickle.dump(city_user_friend,fuser)
         fuser.close()
     
@@ -350,7 +363,7 @@ for city in cities:
         for i in tqdm(range(len(users_id))):
             user_id=users_id[i]
             city_user_data[users_id_to_int[user_id]]=user_data[user_id].copy()
-        fuser=open('../../data/user/'+city+'.pickle','wb')
+        fuser=open('../../data/datasets/user/'+city+'.pickle','wb')
         pickle.dump(city_user_data,fuser)
         fuser.close()
 
@@ -359,7 +372,7 @@ for city in cities:
             checkin['user_id'] = users_id_to_int[checkin['user_id']]
             checkin['poi_id'] = pois_id_to_int[checkin['poi_id']]
             checkin['date'] = pd.to_datetime(checkin['date'])
-        fcheckin=open('../../data/checkin/'+city+'.pickle','wb')
+        fcheckin=open('../../data/datasets/checkin/'+city+'.pickle','wb')
         pickle.dump(checkin_data,fcheckin)
         fcheckin.close()
     #### Treino e teste por ano
@@ -418,10 +431,10 @@ for city in cities:
     #### Treino e teste com porcentagem
 
 
-    ftecheckin=open('../../data/checkin/test/'+city+'.pickle','wb')
+    ftecheckin=open('../../data/datasets/checkin/test/'+city+'.pickle','wb')
     pickle.dump(te_checkin_data,ftecheckin)
     ftecheckin.close()
-    ftrcheckin=open('../../data/checkin/train/'+city+'.pickle','wb')
+    ftrcheckin=open('../../data/datasets/checkin/train/'+city+'.pickle','wb')
     pickle.dump(tr_checkin_data,ftrcheckin)
     ftrcheckin.close()
     
