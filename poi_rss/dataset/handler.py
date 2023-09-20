@@ -27,6 +27,9 @@ from poi_rss.algorithms.library.parallel_util import run_parallel
 from poi_rss.algorithms.library.constants import geocat_constants,experiment_constants
 
 
+TRAIN_SIZE = experiment_constants.TRAIN_SIZE
+TEST_SIZE = 1-TRAIN_SIZE
+
 ## Categories
 
 dict_alias_title,category_tree,dict_alias_depth = cat_utils.cat_structs("../data/categories.json")
@@ -271,3 +274,59 @@ class DatasetHandler:
                 countusf += len(city_user_friend[self.user_id_mapping[_user_id]])
 
         return city_user_friend
+
+    def create_train_test_split(self):
+        """
+        Given a dataset of users, POIs, and checkins, create a train-test split
+        in the format expected.
+
+        1. For each user, gather the visited POIs by date of visit
+        2. Split them by date into training and test sets for each user
+        3. Remove POIs in the test set if they already appear in the training set
+        4. Combine them into training and test sets
+        """
+
+        if ((self.user_id_mapping is None) or (self.poi_id_mapping is None)
+                                           or (self.checkins is None)):
+            raise ValueError("Mappings and checkins are null")
+
+        tr_checkin_data=[]
+        te_checkin_data=[]
+
+        user_checkin_data = {
+            v: []
+            for v in self.user_id_mapping.values()
+        }
+        
+        for checkin in self.checkins:
+            user_checkin_data[checkin['user_id']].append({'poi_id':checkin['poi_id'],'date':checkin['date']})
+        
+        for i, user_id in enumerate(tqdm(self.user_id_mapping.values())):
+            # user_id = users_id_to_int[users_id[i]]
+            checkin_list=user_checkin_data[user_id]
+            checkin_list=sorted(checkin_list, key = lambda x: x['date']) 
+            train_size=math.ceil(len(checkin_list)*TRAIN_SIZE)
+            #test_size=math.floor(len(checkin_list)*TEST_SIZE)
+            count=1
+            te_pois=set()
+            tr_pois=set()
+            initial_te_size=len(te_checkin_data)
+            final_te_size=len(te_checkin_data)
+            for checkin in checkin_list:
+                if count<=train_size:
+                    tr_pois.add(checkin['poi_id'])
+                    tr_checkin_data.append({'user_id':user_id,'poi_id':checkin['poi_id'],'date':checkin['date']})
+                else:
+                    te_pois.add(checkin['poi_id'])
+                    te_checkin_data.append({'user_id':user_id,'poi_id':checkin['poi_id'],'date':checkin['date']})
+                    final_te_size+=1
+                count+=1
+            int_pois=te_pois&tr_pois
+            rel_index=0
+            for j in range(initial_te_size,final_te_size):
+                j+=rel_index
+                if te_checkin_data[j]['poi_id'] in int_pois:
+                    te_checkin_data.pop(j)
+                    rel_index-=1
+        
+        return tr_checkin_data, te_checkin_data
