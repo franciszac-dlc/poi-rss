@@ -2,7 +2,7 @@
 Submodule of poi_rss.dataset for reading the raw dataset files and processing
 them into MongoDB.
 
-Ideally this should replace `datasetgen.py`.
+Ideally this should replace the first half of `datasetgen.py`.
 """
 
 import collections
@@ -65,15 +65,19 @@ def read_yelp_business_data(fname: str) -> Tuple[List[str], Mapping[str, str]]:
 
     with MongoDBConnection('poi_rss_yelp') as db:
         poi_data = db['poi_data']
+        poi_data_list = list(poi_data.find(projection=['business_id', 'city']))
         poi_ids = [
             x['business_id']
-            for x in poi_data.find(projection=['business_id'])
+            for x in poi_data_list
         ]
-        poi_city = {}
+        poi_city = {
+            x['business_id']: x['city']
+            for x in poi_data_list
+        }
 
         if len(poi_ids) > 0:
             print(f"Collection exists with {len(poi_ids)} records, returning...")
-            return poi_ids
+            return poi_ids, poi_city
 
         poi_data.create_index(
             [("business_id", 1)],
@@ -113,7 +117,9 @@ def read_yelp_business_data(fname: str) -> Tuple[List[str], Mapping[str, str]]:
 
 def read_yelp_city_data(cities, poi_ids):
     """
-    Given a list of POIs and cities, do something.
+    Given a list of POIs and cities, generate a mapping.
+    Technically this isn't needed since we do store city information in the DB
+    already.
     """
 
     areas=dict()
@@ -127,7 +133,7 @@ def read_yelp_city_data(cities, poi_ids):
         }
 
     for city in cities:
-        areas[city]=areamanager.delimiter_area(city)
+        areas[city] = areamanager.delimiter_area(city)
 
     start_time=time.time()
 
@@ -144,7 +150,7 @@ def read_yelp_city_data(cities, poi_ids):
         print(f"{city} has {len(pid_in_area)} POIs")
 
     print(f"Generating the PID->area mapping took {time.time()-start_time:.3f}s")
-    return areas, cities_pid_in_area
+    return area, cities_pid_in_area
 
 
 ## Users
@@ -256,6 +262,218 @@ def read_yelp_checkin_data(fname: str,
     print(f"Reading json file took {time.time()-start_time:.3f}s")
 
 
+def generate_train_test_data(city: str) -> None:
+    """
+    Given the preparations done previously and stored in the MongoDB database,
+    generate the train-test split. This function is run for a given city.
+    """
+
+    print("CITY: %s" % (city))
+
+    with MongoDBConnection('poi_rss_yelp') as db:
+        checkin_data = list(db.checkin_data.find({'city': city}))
+
+    print("checkin_data size: %d"%(len(checkin_data)))
+    # columns: _id, city, user_id, poi_id, date
+    df_checkin = pd.DataFrame.from_dict(checkin_data)
+
+    # Filter out POIs with < 5 visitors
+    df_diff_users_visited = df_checkin[['user_id','poi_id']] \
+                                .drop_duplicates() \
+                                .reset_index(drop=True) \
+                                .groupby('poi_id') \
+                                .count() \
+                                .reset_index() \
+                                .rename(columns={"user_id":"diffusersvisited"})
+    df_diff_users_visited = df_diff_users_visited[
+        df_diff_users_visited['diffusersvisited'] >= 5
+    ]
+    del df_diff_users_visited['diffusersvisited']
+
+    # Filter out users with < 20 check-ins
+    df_checkin = pd.merge(df_checkin, df_diff_users_visited, on='poi_id', how='inner')
+    df_checkin['usercount'] = df_checkin.groupby(['user_id'])['user_id'].transform('count')
+    df_checkin = df_checkin[df_checkin['usercount']>=20]
+    del df_checkin['usercount']
+
+    checkin_data = list(df_checkin.to_dict('index').values())
+
+    # Generate a main set of user and POI ids for each city
+    users_id = list(x['user_id'] for x in checkin_data)
+    user_num=len(users_id)
+    pois_id = list(x['poi_id'] for x in checkin_data)
+    poi_num=len(pois_id)
+    print("user_num:%d, poi_num:%d"%(user_num,poi_num))
+
+    users_id_to_int = dict()
+    for i, user_id in enumerate(users_id):
+        users_id_to_int[user_id] = i
+
+    pois_id_to_int = dict()
+    for i, poi_id in enumerate(pois_id):
+        pois_id_to_int[poi_id] = i
+
+    with MongoDBConnection('poi_rss_yelp') as db:
+        user_id_dataset = db.user_id_dataset
+        user_id_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        poi_id_dataset = db.poi_id_dataset
+        poi_id_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        try:
+            user_id_dataset.insert_one({
+                'city': city,
+                'data': users_id_to_int
+            })
+            poi_id_dataset.insert_one({
+                'city': city,
+                'data': pois_id_to_int
+            })
+        except mg.errors.DuplicateKeyError:
+            print(f"ID datasets for {city} already exists, continuing...")
+
+    # Augment with category data
+    with MongoDBConnection('poi_rss_yelp') as db:
+        poi_data_cursor = db.poi_data.find({'business_id': {'$in': pois_id}})
+        poi_data = {
+            x['business_id']: x
+            for x in poi_data_cursor
+        }
+
+        city_poi_data = dict()
+        city_poi_data_full = dict()
+        for poi_id in pois_id:
+            city_poi_data[str(pois_id_to_int[poi_id])] = poi_data[poi_id].copy()
+            city_poi_data[str(pois_id_to_int[poi_id])]['categories'] = category_filter(poi_data[poi_id]['categories'])
+
+            city_poi_data_full[str(pois_id_to_int[poi_id])] = poi_data[poi_id].copy()
+            city_poi_data_full[str(pois_id_to_int[poi_id])] = {
+                'categories': category_normalization(
+                    city_poi_data[str(pois_id_to_int[poi_id])]['categories']
+                )
+            }
+
+        poi_dataset = db.poi_dataset
+        poi_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        poi_full_dataset = db.poi_full_dataset
+        poi_full_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        try:
+            poi_dataset.insert_one({
+                'city': city,
+                'data': city_poi_data
+            })
+            poi_full_dataset.insert_one({
+                'city': city,
+                'data': city_poi_data_full
+            })
+        except mg.errors.DuplicateKeyError:
+            print(f"POI city and full datasets for {city} already exists, continuing...")
+
+    # Augment with neighbor data
+    poi_neighbors={}
+    pois_id = [str(pois_id_to_int[pid]) for pid in pois_id]
+    pois_coos = np.array([(city_poi_data[pid]['latitude'],city_poi_data[pid]['longitude']) for pid in pois_id])*np.pi/180
+    poi_coos_balltree = sklearn.neighbors.BallTree(pois_coos,metric="haversine")
+    poi_neighbors = {
+        lid: [
+            int(x) for x in
+            poi_coos_balltree.query_radius(
+                [pois_coos[int(lid)]],geocat_constants.NEIGHBOR_DISTANCE/earth_radius
+            )[0]
+        ]
+        for lid in pois_id
+    }
+
+    with MongoDBConnection('poi_rss_yelp') as db:
+        neighbor_dataset = db.neighbor_dataset
+        neighbor_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        try:
+            neighbor_dataset.insert_one({
+                'city': city,
+                'data': poi_neighbors
+            })
+        except mg.errors.DuplicateKeyError:
+            print(f"Neighbor datasets for {city} already exists, continuing...")
+
+    # Augment with friend data
+    city_user_friend = dict()
+    countusf = 0
+    with MongoDBConnection('poi_rss_yelp') as db:
+        user_friend_cursor = db.user_friend.find({'user_id': {'$in': users_id}})
+        for user_friend_item in tqdm(iter(user_friend_cursor)):
+            _user_id = user_friend_item['user_id']
+            _friends = user_friend_item['friends']
+            city_user_friend[str(users_id_to_int[_user_id])] = [
+                str(users_id_to_int[u]) for u in _friends
+                if u in users_id_to_int
+            ]
+            countusf += len(city_user_friend[str(users_id_to_int[_user_id])])
+
+        friend_dataset = db.friend_dataset
+        friend_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        try:
+            friend_dataset.insert_one({
+                'city': city,
+                'data': city_user_friend
+            })
+        except mg.errors.DuplicateKeyError:
+            print(f"Friend datasets for {city} already exists, continuing...")
+        
+        print("Friends: %d"%(countusf))
+
+    # Segment out user and checkin data
+    # I don't think we need this but let's include it in first
+    city_user_data = dict()
+    with MongoDBConnection('poi_rss_yelp') as db:
+        user_data_cursor = db.user_data.find({'user_id': {'$in': users_id}})
+        for user_data_item in tqdm(iter(user_data_cursor)):
+            _user_id = user_data_item['user_id']
+            city_user_data[str(users_id_to_int[_user_id])] = user_data_item
+
+        for checkin in checkin_data:
+            checkin['user_id'] = str(users_id_to_int[checkin['user_id']])
+            checkin['poi_id'] = str(pois_id_to_int[checkin['poi_id']])
+            checkin['date'] = pd.to_datetime(checkin['date'])
+
+        user_dataset = db.user_dataset
+        user_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        checkin_dataset = db.checkin_dataset
+        checkin_dataset.create_index(
+            [("city", 1)],
+            unique=True
+        )
+        try:
+            user_dataset.insert_one({
+                'city': city,
+                'data': city_user_data
+            })
+            checkin_dataset.insert_one({
+                'city': city,
+                'data': checkin_data
+            })
+        except mg.errors.DuplicateKeyError:
+            print(f"User and checkin datasets for {city} already exists, continuing...")
+        
+
 if __name__ == "__main__":
     # We're still testing.
     # with mg.MongoClient() as client:
@@ -265,7 +483,7 @@ if __name__ == "__main__":
     SPLIT_YEAR = 2017
     earth_radius = 6371000/1000 # km in earth
     # cities=['lasvegas', 'phoenix', 'charlotte', 'madison']
-    cities = ['montreal', 'pittsburgh']
+    cities = ['Reno']
 
     print("Reading Yelp dataset into MongoDB...")
 
@@ -280,7 +498,7 @@ if __name__ == "__main__":
     print("2. Setting up business data...")
     poi_ids, poi_city = read_yelp_business_data(DATA_DIR+"business.json")
 
-    # print("3. Setting up cities data...")
+    print("3. Setting up cities data...")
     # areas, cities_pid_in_area = read_yelp_city_data(cities, poi_ids)
 
     # The process gets killed here because the user dictionaries end up being too
@@ -290,8 +508,8 @@ if __name__ == "__main__":
 
     # This doesn't have uniqueness checks as this is only indexed. Comment out to make sure there's no duplication
     print("5. Setting up checkin data...")
-    read_yelp_checkin_data(DATA_DIR+"review.json", poi_city)
-    read_yelp_checkin_data(DATA_DIR+"tip.json", poi_city)
+    # read_yelp_checkin_data(DATA_DIR+"review.json", poi_city)
+    # read_yelp_checkin_data(DATA_DIR+"tip.json", poi_city)
 
     print("6. Iterating over cities...")
     '''
@@ -319,3 +537,5 @@ if __name__ == "__main__":
         {'_id': 'Saint Louis', 'count': 296214},
         {'_id': 'Boise', 'count': 116798}]
     '''
+    for city in cities:
+        generate_train_test_data(city)

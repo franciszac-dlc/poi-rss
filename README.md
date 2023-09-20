@@ -38,3 +38,114 @@ Please if this code is useful in your research consider citing the following pap
 	  year={2021},
 	  publisher={Elsevier}
 	}
+
+# Data file reference
+
+## Downloaded files
+
+## Generated files (per city)
+
+### Filters
+
+```
+- Drop user-poi duplicates
+- Drop POIs with < 5 users visited
+- Drop users with < 20 visits in the city
+```
+
+### `user/id/<city>.pkl`
+
+```
+{
+	user_id: user_ndx
+}
+```
+
+### `poi/id/<city>.pkl`
+
+```
+{
+	poi_id: poi_ndx
+}
+```
+
+### `poi_full/<city>.pkl`
+
+```
+{
+	poi_ndx: {
+		{
+			'categories': category_normalization(
+				poi_data[poi_id]['categories']
+			)
+		}
+	}
+}
+```
+
+### `poi/<city>.pkl`
+
+```
+{
+	poi_ndx: {
+		{
+			'categories': category_filter(
+				poi_data[poi_id]['categories']
+			)
+		}
+	}
+}
+```
+
+### `neighbor/<city>.pkl`
+
+```
+{
+	poi_ndx: list(
+		poi_coos_balltree.query_radius(
+			[pois_coos[lid]],
+			geocat_constants.NEIGHBOR_DISTANCE/earth_radius
+		)[0]
+	)
+}
+```
+
+### `user/friend/<city>.pkl`
+
+```
+{
+	user_ndx: [user_ndx friends]
+}
+```
+
+### `user/<city>.pkl`
+
+```
+{
+	user_ndx: { user data }
+}
+```
+
+### `checkin/<city>.pkl`
+
+```
+[
+	{
+		'user_id': user_ndx,
+		'poi_id': poi_ndx,
+		'date': pd.Datetime,
+	}
+]
+```
+
+### `checkin/<train,test>/<city>.pkl`
+
+Note that this step also does per-user splits and filters to avoid data leakage.
+
+[
+	{
+		'user_id': user_ndx,
+		'poi_id': poi_ndx,
+		'date': pd.Datetime,
+	}
+]
