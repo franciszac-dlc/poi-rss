@@ -1,7 +1,7 @@
 class experiment_constants:
     CITIES = ['madison', 'charlotte', 'lasvegas',
               'phoenix', 'montreal', 'pittsburgh']
-    CITY = "madison"  # city source of checkins
+    CITY = "Reno"  # city source of checkins
     TRAIN_SIZE = 0.7
     N = 80
     K = 20
@@ -11,7 +11,7 @@ class experiment_constants:
 R_FORMAT = '.json'  # Results format is json, metrics, rec lists, etc
 D_FORMAT = '.pickle'  # data set format is pickle
 
-DATA = '../../data'
+DATA = '/home/franciszacdlc/School/Thesis/poi-rss/data'
 DATASET_DIRECTORY = 'datasets/'
 RESULT_DIRECTORY = 'results/'
 TRAIN = DATASET_DIRECTORY+'checkin/train/'  # train data sets

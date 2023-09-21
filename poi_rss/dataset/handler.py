@@ -24,7 +24,7 @@ import poi_rss.algorithms.library.areamanager as areamanager
 import poi_rss.algorithms.library.cat_utils as cat_utils
 import poi_rss.algorithms.library.geo_utils as geo_utils
 from poi_rss.algorithms.library.parallel_util import run_parallel
-from poi_rss.algorithms.library.constants import geocat_constants,experiment_constants
+from poi_rss.algorithms.library.constants import geocat_constants,experiment_constants,DATA
 
 
 TRAIN_SIZE = experiment_constants.TRAIN_SIZE
@@ -32,7 +32,7 @@ TEST_SIZE = 1-TRAIN_SIZE
 
 ## Categories
 
-dict_alias_title,category_tree,dict_alias_depth = cat_utils.cat_structs("../data/categories.json")
+dict_alias_title,category_tree,dict_alias_depth = cat_utils.cat_structs(DATA+"/categories.json")
 undirected_category_tree = category_tree.to_undirected()
 
 def category_filter(categories):
@@ -252,7 +252,7 @@ class DatasetHandler:
 
         return poi_neighbors
 
-    def get_friend_data(self, city_poi_data: dict | None):
+    def get_friend_data(self):
         """
         Method used to replace the file `user/friend/<city>.pkl`
         """

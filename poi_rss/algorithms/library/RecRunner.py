@@ -64,6 +64,7 @@ import pickle
 from collections import defaultdict, OrderedDict, Counter
 from abc import ABC, abstractmethod
 from enum import Enum
+from poi_rss.dataset.handler import DatasetHandler
 LANG = 'en'
 
 
@@ -203,6 +204,9 @@ class RecRunner():
         self.recs_user_final_predicted_score = {}
         self.recs_user_base_predicted_lid = {}
         self.recs_user_base_predicted_score = {}
+
+        self.dataset_handler = DatasetHandler(self.city)
+        self.dataset_handler.get_city_ids()
 
     def message_start_section(self, string):
         print("------===%s===------" % (string))
@@ -434,24 +438,25 @@ class RecRunner():
         # Train load
 
         if self.train_size == None:
-            self.data_checkin_train = pickle.load(
-                open(self.data_directory+TRAIN+CITY+".pickle", "rb"))
+            self.data_checkin_train, _data_checkin_test = self.dataset_handler.create_train_test_split()
 
             # Test load
             self.ground_truth = defaultdict(set)
-            for checkin in pickle.load(open(self.data_directory+TEST+CITY+".pickle", "rb")):
+            for checkin in _data_checkin_test:
                 self.ground_truth[checkin['user_id']].add(checkin['poi_id'])
             self.ground_truth = dict(self.ground_truth)
         # Pois load
         self.poi_coos = {}
         self.poi_cats = {}
-        for poi_id, poi in pickle.load(open(self.data_directory+POI+CITY+".pickle", "rb")).items():
+        _poi_city_data = self.dataset_handler.get_category_data()
+        for poi_id, poi in _poi_city_data.items():
             self.poi_coos[poi_id] = tuple([poi['latitude'], poi['longitude']])
             self.poi_cats[poi_id] = poi['categories']
 
         # Social relations load
         self.social_relations = defaultdict(list)
-        for user_id, friends in pickle.load(open(self.data_directory+USER_FRIEND+CITY+".pickle", "rb")).items():
+        _user_friend_data = self.dataset_handler.get_friend_data()
+        for user_id, friends in _user_friend_data.items():
             self.social_relations[user_id] = friends
 
         self.social_relations = dict(self.social_relations)
@@ -462,7 +467,7 @@ class RecRunner():
         self.poi_num = poi_num
         # Cat Hierarchy load
         self.dict_alias_title, self.category_tree, self.dict_alias_depth = cat_utils.cat_structs_igraph(
-            self.data_directory+DATASET_DIRECTORY+"categories.json")
+            self.data_directory+"categories.json")
         # self.undirected_category_tree = self.category_tree.to_undirected()
         self.undirected_category_tree = self.category_tree.shortest_paths()
 
@@ -482,15 +487,13 @@ class RecRunner():
                                      checkin['poi_id']] += 1
 
         # poi neighbors load
-        self.poi_neighbors = pickle.load(
-            open(self.data_directory+NEIGHBOR+CITY+".pickle", "rb"))
+        self.poi_neighbors = self.dataset_handler.get_neighbor_data()
         print(f"{CITY} city base loaded")
         self.all_uids = list(range(user_num))
         self.all_lids = list(range(poi_num))
 
         if user_data:
-            self.user_data = pickle.load(
-                open(self.data_directory+USER+CITY+'.pickle', 'rb'))
+            self.user_data = self.dataset_handler.get_user_data()
         if test_data:
             self.test_data()
 

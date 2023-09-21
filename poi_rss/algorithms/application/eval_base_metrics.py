@@ -1,9 +1,9 @@
 
 import sys, os
 sys.path.insert(0, os.path.abspath('..'))
-from library.RecRunner import RecRunner
+from poi_rss.algorithms.library.RecRunner import RecRunner
 import inquirer
-from library.constants import DATA,experiment_constants
+from poi_rss.algorithms.library.constants import DATA,experiment_constants
 import app_utils
 import argparse
 

@@ -1,8 +1,8 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath('..'))
-from library.RecRunner import RecRunner
-from library.constants import experiment_constants
+from poi_rss.algorithms.library.RecRunner import RecRunner
+from poi_rss.algorithms.library.constants import experiment_constants
 import argparse
 def add_cities_arg(parser:argparse.ArgumentParser):
     parser.add_argument('--cities',nargs='*',help=f'City, e.g., {", ".join(experiment_constants.CITIES)}')
