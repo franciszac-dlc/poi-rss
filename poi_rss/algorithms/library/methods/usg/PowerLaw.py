@@ -22,6 +22,17 @@ def dist(loc1, loc2):
 
 
 class PowerLaw():
+    """
+    Given a matrix of (n_users, n_pois), fits a log-linear regression model to a
+    power law distribution that predicts the checkin probability of a user given
+    the distance between 2 POIs.
+
+    Then, given a user's set of visited POIs, computes the probability of visiting
+    some POI, using a naive Bayesian approach.
+
+    (Refer to section 3 of the USG paper)
+    """
+
     def __init__(self, a=None, b=None):
         self.a = a
         self.b = b

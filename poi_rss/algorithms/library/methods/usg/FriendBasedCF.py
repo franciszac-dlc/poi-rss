@@ -4,6 +4,16 @@ from collections import defaultdict
 from parallel_util import run_parallel
 
 class FriendBasedCF():
+    """
+    Given an adjacency list of user-friend connections, compute the social
+    influence between 2 users.
+
+    The predict() function takes in a user ID and a POI ID, and computes the
+    probability that user i visits POI j, based on this social influence.
+
+    (Refer to section 2.2 of the USG paper)
+    """
+
     _instance = None
 
     @classmethod

@@ -483,7 +483,7 @@ if __name__ == "__main__":
     SPLIT_YEAR = 2017
     earth_radius = 6371000/1000 # km in earth
     # cities=['lasvegas', 'phoenix', 'charlotte', 'madison']
-    cities = ['Reno']
+    cities = ['Philadelphia', 'Tucson']
 
     print("Reading Yelp dataset into MongoDB...")
 
@@ -499,7 +499,7 @@ if __name__ == "__main__":
     poi_ids, poi_city = read_yelp_business_data(DATA_DIR+"business.json")
 
     print("3. Setting up cities data...")
-    # areas, cities_pid_in_area = read_yelp_city_data(cities, poi_ids)
+    areas, cities_pid_in_area = read_yelp_city_data(cities, poi_ids)
 
     # The process gets killed here because the user dictionaries end up being too
     # large. For reference, user.json is 3GB.

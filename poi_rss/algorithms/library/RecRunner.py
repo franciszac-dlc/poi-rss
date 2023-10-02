@@ -559,13 +559,19 @@ class RecRunner():
     ###
 
     def usg(self):
-        training_matrix = self.training_matrix
-        all_uids = self.all_uids
-        social_relations = self.social_relations
-        poi_coos = self.poi_coos
-        top_k = self.base_rec_list_size
+        """
+        USG:    CF algorithm based on the naive Bayesian
+                Accounts for geographical influence
+        """
+
+        # Given N users and M POIs
+        training_matrix = self.training_matrix      # N x M matrix of checkin count
+        all_uids = self.all_uids                    # List of N user IDs
+        social_relations = self.social_relations    # Dict of <user ID> -> List of <friend IDs>
+        poi_coos = self.poi_coos                    # Dict of <poi ID> -> Tuple of <poi coordinates>
+        top_k = self.base_rec_list_size             # Size k of recommendation list
         training_matrix = training_matrix.copy()
-        training_matrix[training_matrix >= 1] = 1
+        training_matrix[training_matrix >= 1] = 1   # Transform counts to binary
         alpha = self.base_rec_parameters['alpha']
         beta = self.base_rec_parameters['beta']
 
@@ -937,6 +943,12 @@ class RecRunner():
 
     @staticmethod
     def run_usg(recrunner_id, uid, alpha, beta):
+        """
+        Given prediction scores based on user-similarity, friend-similarity,
+        and geographical-influence, computes a predicted score based on a
+        convex combination of the 3 scores.
+        """
+
         self =ctypes.cast(recrunner_id,ctypes.py_object).value
         U = self.cache[self.base_rec]['U']
         S = self.cache[self.base_rec]['S']

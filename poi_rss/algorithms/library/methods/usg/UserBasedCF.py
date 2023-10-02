@@ -4,6 +4,16 @@ import time
 
 
 class UserBasedCF():
+    """
+    Given a matrix of (n_users, n_pois), computes the similarity matrix
+    (n_users, n_users) of cosine-similarity values.
+
+    The predict() function takes in a user ID and a POI ID, and computes the
+    probability that user i visits POI j
+
+    (Refer to section 2.1 of the USG paper)
+    """
+
     def __init__(self):
         self.rec_score = None
 
